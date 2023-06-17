@@ -105,6 +105,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  ensure_visible_when_focused:
+    dependency: "direct main"
+    description:
+      name: ensure_visible_when_focused
+      sha256: "5899472d01eaf35d39265ee4f4792d57de78958326a1c6e0c2afb968ffadeb46"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   fake_async:
     dependency: transitive
     description:
