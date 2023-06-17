@@ -1,7 +1,10 @@
+import 'package:e_videncija/models/enums/role_enum.dart';
 import 'package:e_videncija/providers/user_provider.dart';
 import 'package:e_videncija/utils/capitalize_first_letter.dart';
 import 'package:e_videncija/utils/role_local_name.dart';
+import 'package:e_videncija/views/professor_attendance_list.dart';
 import 'package:e_videncija/views/settings_page.dart';
+import 'package:e_videncija/views/student_attendance_scan.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +14,14 @@ class Home extends StatelessWidget {
   _navigateToSettings(BuildContext context) {
     Navigator.of(context).push(
         MaterialPageRoute(builder: (BuildContext context) => SettingsPage()));
+  }
+
+  _navigateToAttendance(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (BuildContext context) =>
+            context.watch<UserProvider>().role == Role.student
+                ? StudentAttendanceScan()
+                : ProfessorAttendanceList()));
   }
 
   @override
@@ -23,7 +34,7 @@ class Home extends StatelessWidget {
         title: Text('Nazad'),
       ),
       body: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(40),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -57,11 +68,13 @@ class Home extends StatelessWidget {
               ),
               SizedBox(height: 150),
               TextButton(
-                onPressed: () {},
+                onPressed: () => _navigateToAttendance(context),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Evidencija'),
+                    Text(user.role == Role.professor
+                        ? 'Evidencija'
+                        : 'Evdentiraj'),
                   ],
                 ),
               ),
