@@ -94,6 +94,7 @@ class EvidencijaTheme {
     ),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: Colors.white,
+      selectionHandleColor: primaryColorAlt,
     ),
     inputDecorationTheme: InputDecorationTheme(
       contentPadding: const EdgeInsets.symmetric(
@@ -154,6 +155,9 @@ class EvidencijaTheme {
           },
         ),
         foregroundColor: MaterialStateProperty.all(Colors.black),
+        overlayColor: MaterialStatePropertyAll(
+          Colors.white.withOpacity(0.2),
+        ),
         shape: MaterialStatePropertyAll(
           RoundedRectangleBorder(
             side: BorderSide.none,
@@ -221,6 +225,52 @@ class EvidencijaTheme {
     progressIndicatorTheme: ProgressIndicatorThemeData(
       color: Colors.white,
       circularTrackColor: primaryColorAlt.withOpacity(0.6),
+    ),
+    dialogTheme: DialogTheme(
+      shape: RoundedRectangleBorder(
+        side: BorderSide(width: 2, color: primaryColorAlt),
+        borderRadius: BorderRadius.circular(defaultBorderRadius),
+      ),
+      backgroundColor: primaryColor,
+    ),
+    listTileTheme: ListTileThemeData(
+      dense: true,
+      minVerticalPadding: 0,
+      contentPadding: EdgeInsets.symmetric(horizontal: 10),
+      horizontalTitleGap: 0,
+      selectedTileColor: primaryColorAlt,
+      tileColor: primaryColorAlt,
+      textColor: Colors.black,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          width: 2,
+          color: primaryColorAlt,
+        ),
+        borderRadius: BorderRadius.circular(defaultBorderRadius),
+      ),
+    ),
+    expansionTileTheme: ExpansionTileThemeData(
+      childrenPadding: EdgeInsets.all(20),
+      collapsedBackgroundColor: primaryColorAlt,
+      backgroundColor: primaryColor,
+      collapsedTextColor: Colors.black,
+      textColor: Colors.white,
+      collapsedIconColor: Colors.black,
+      iconColor: Colors.white,
+      collapsedShape: RoundedRectangleBorder(
+        side: BorderSide(
+          width: 2,
+          color: primaryColorAlt,
+        ),
+        borderRadius: BorderRadius.circular(defaultBorderRadius),
+      ),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          width: 2,
+          color: primaryColorAlt,
+        ),
+        borderRadius: BorderRadius.circular(defaultBorderRadius),
+      ),
     ),
   );
 }

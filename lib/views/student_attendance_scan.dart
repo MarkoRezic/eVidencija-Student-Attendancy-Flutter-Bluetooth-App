@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:e_videncija/globals/settings.dart';
 import 'package:e_videncija/models/enums/role_enum.dart';
 import 'package:e_videncija/models/user_model.dart';
 import 'package:e_videncija/providers/user_provider.dart';
@@ -27,22 +28,24 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
   late StreamSubscription subscription;
   late StreamSubscription receivedDataSubscription;
   late UserModel user;
+  bool isPhysicalDevice = true;
 
   bool isInit = false;
 
   @override
   void initState() {
     super.initState();
-    user = context.watch<UserProvider>().user;
     init();
   }
 
   @override
   void dispose() {
-    subscription.cancel();
-    receivedDataSubscription.cancel();
-    nearbyService.stopBrowsingForPeers();
-    nearbyService.stopAdvertisingPeer();
+    if (isPhysicalDevice) {
+      subscription.cancel();
+      receivedDataSubscription.cancel();
+      nearbyService.stopBrowsingForPeers();
+      nearbyService.stopAdvertisingPeer();
+    }
     super.dispose();
   }
 
@@ -52,9 +55,14 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     if (Platform.isAndroid) {
       AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+      debugPrint(
+          "Device UUID: ${(await Settings.getInstance()).getSetting(Setting.deviceID)}");
       devInfo = androidInfo.model;
       if (!androidInfo.isPhysicalDevice) {
         debugPrint("Running in emulator, NearbyService will NOT be started.");
+        setState(() {
+          isPhysicalDevice = false;
+        });
         return;
       }
     }
@@ -63,6 +71,9 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
       devInfo = iosInfo.localizedModel;
       if (!iosInfo.isPhysicalDevice) {
         debugPrint("Running in emulator, NearbyService will NOT be started.");
+        setState(() {
+          isPhysicalDevice = false;
+        });
         return;
       }
     }
@@ -107,6 +118,7 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
         connectedDevices.addAll(devicesList
             .where((d) => d.state == SessionState.connected)
             .toList());
+        user = context.watch<UserProvider>().user;
       });
     });
 

@@ -13,6 +13,7 @@ class Setting {
   static const university = 'university';
   static const role = 'role';
   static const titles = 'titles';
+  static const deviceID = 'deviceId';
 }
 
 class Settings {
@@ -25,6 +26,7 @@ class Settings {
     Setting.university: '',
     Setting.role: '',
     Setting.titles: '',
+    Setting.deviceID: '',
   };
   static final selectValues = {
     Setting.role: Role.values.mapToList((role) => role.name),
@@ -54,6 +56,7 @@ class Settings {
     Setting.university: SettingTypes.text,
     Setting.role: SettingTypes.select,
     Setting.titles: SettingTypes.text,
+    Setting.deviceID: SettingTypes.text,
   };
   static const rules = {
     Setting.initialized: [],
@@ -62,6 +65,7 @@ class Settings {
     Setting.university: ['required'],
     Setting.role: ['required'],
     Setting.titles: [],
+    Setting.deviceID: [],
   };
 
   static Future<Settings> getInstance() async {
@@ -76,6 +80,10 @@ class Settings {
   }
 
   Settings._(SharedPreferences prefs) : preferences = prefs;
+
+  Future<void> reload() async {
+    await preferences.reload();
+  }
 
   Future<void> resetDefaults() async {
     await preferences.setString('settings', jsonEncode(defaults));
