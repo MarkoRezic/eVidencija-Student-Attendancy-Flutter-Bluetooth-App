@@ -168,10 +168,10 @@ class _InitRoleState extends State<InitRole> {
                                                         true
                                                     ? settingErrors[setting.key]
                                                     : null,
-                                                labelText:
-                                                    setting.key.toCapitalized(),
+                                                labelText: setting.value
+                                                    .toCapitalized(),
                                                 hintText:
-                                                    "Unesite ${setting.key}",
+                                                    "Unesite ${setting.value}",
                                               ),
                                               focusNode: settingFocusNodes[
                                                   setting.key]!,
@@ -274,10 +274,10 @@ class _InitRoleState extends State<InitRole> {
                                                                     setting
                                                                         .key],
                                                             labelText: setting
-                                                                .key
+                                                                .value
                                                                 .toCapitalized(),
                                                             hintText:
-                                                                "Unesite ${setting.key}",
+                                                                "Unesite ${setting.value}",
                                                           ),
                                                           focusNode:
                                                               settingFocusNodes[

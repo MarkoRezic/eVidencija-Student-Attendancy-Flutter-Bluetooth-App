@@ -4,11 +4,11 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:e_videncija/globals/settings.dart';
-import 'package:e_videncija/models/enums/role_enum.dart';
 import 'package:e_videncija/models/user_model.dart';
 import 'package:e_videncija/providers/user_provider.dart';
 import 'package:e_videncija/utils/map_indexed_to_list.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_nearby_connections/flutter_nearby_connections.dart';
 import 'package:provider/provider.dart';
 
@@ -22,20 +22,19 @@ class StudentAttendanceScan extends StatefulWidget {
 }
 
 class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
-  List<Device> devices = [];
-  List<Device> connectedDevices = [];
+  List<Device> _connectedDevices = [];
   late NearbyService nearbyService;
   late StreamSubscription subscription;
   late StreamSubscription receivedDataSubscription;
   late UserModel user;
   bool isPhysicalDevice = true;
 
-  bool isInit = false;
-
   @override
   void initState() {
     super.initState();
-    init();
+    SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
+      initScan();
+    });
   }
 
   @override
@@ -49,7 +48,7 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
     super.dispose();
   }
 
-  void init() async {
+  void initScan() async {
     nearbyService = NearbyService();
     String devInfo = '';
     DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -83,42 +82,49 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
         strategy: Strategy.P2P_CLUSTER,
         callback: (isRunning) async {
           if (isRunning) {
-            if (user.role == Role.student) {
-              await nearbyService.stopBrowsingForPeers();
-              await Future.delayed(Duration(microseconds: 200));
-              await nearbyService.startBrowsingForPeers();
-            } else {
-              await nearbyService.stopAdvertisingPeer();
-              await nearbyService.stopBrowsingForPeers();
-              await Future.delayed(Duration(microseconds: 200));
-              await nearbyService.startAdvertisingPeer();
-              await nearbyService.startBrowsingForPeers();
-            }
+            await nearbyService.stopAdvertisingPeer();
+            await nearbyService.stopBrowsingForPeers();
+            await Future.delayed(Duration(microseconds: 200));
+            await nearbyService.startAdvertisingPeer();
+            await nearbyService.startBrowsingForPeers();
           }
         });
+
     subscription =
-        nearbyService.stateChangedSubscription(callback: (devicesList) {
-      devicesList.forEach((element) {
+        nearbyService.stateChangedSubscription(callback: (devicesList) async {
+      for (var device in devicesList) {
         print(
-            " deviceId: ${element.deviceId} | deviceName: ${element.deviceName} | state: ${element.state}");
+            " deviceId: ${device.deviceId} | deviceName: ${device.deviceName} | state: ${device.state}");
 
         if (Platform.isAndroid) {
-          if (element.state == SessionState.connected) {
+          if (device.state == SessionState.connected) {
             nearbyService.stopBrowsingForPeers();
           } else {
             nearbyService.startBrowsingForPeers();
           }
         }
-      });
+      }
+
+      //find professor device as the one that was not in the previous list
+      //(if there are multiple just take first one, because in practice only 1 professor should connect at a time)
+      List<Device> newProfessorDevices = devicesList
+          .where((device) => !_connectedDevices.any(
+              (connectedDevice) => connectedDevice.deviceId == device.deviceId))
+          .toList();
+      Device? professorDevice =
+          newProfessorDevices.isEmpty ? null : newProfessorDevices.first;
+      //send message containing student data to professor that just connected
+      if (professorDevice != null) {
+        nearbyService.sendMessage(professorDevice.deviceId,
+            (await Settings.getInstance()).asJSONString());
+      }
 
       setState(() {
-        devices.clear();
-        devices.addAll(devicesList);
-        connectedDevices.clear();
-        connectedDevices.addAll(devicesList
+        //update devices list
+        _connectedDevices.clear();
+        _connectedDevices.addAll(devicesList
             .where((d) => d.state == SessionState.connected)
             .toList());
-        user = context.watch<UserProvider>().user;
       });
     });
 
@@ -133,111 +139,9 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
     });
   }
 
-  String getStateName(SessionState state) {
-    switch (state) {
-      case SessionState.notConnected:
-        return "disconnected";
-      case SessionState.connecting:
-        return "waiting";
-      default:
-        return "connected";
-    }
-  }
-
-  String getButtonStateName(SessionState state) {
-    switch (state) {
-      case SessionState.notConnected:
-      case SessionState.connecting:
-        return "Connect";
-      default:
-        return "Disconnect";
-    }
-  }
-
-  Color getStateColor(SessionState state) {
-    switch (state) {
-      case SessionState.notConnected:
-        return Colors.black;
-      case SessionState.connecting:
-        return Colors.grey;
-      default:
-        return Colors.green;
-    }
-  }
-
-  Color getButtonColor(SessionState state) {
-    switch (state) {
-      case SessionState.notConnected:
-      case SessionState.connecting:
-        return Colors.green;
-      default:
-        return Colors.red;
-    }
-  }
-
-  _onTabItemListener(Device device) {
-    if (device.state == SessionState.connected) {
-      showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            final myController = TextEditingController();
-            return AlertDialog(
-              title: Text("Send message"),
-              content: TextField(controller: myController),
-              actions: [
-                TextButton(
-                  child: Text("Cancel"),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-                TextButton(
-                  child: Text("Send"),
-                  onPressed: () {
-                    nearbyService.sendMessage(
-                        device.deviceId, myController.text);
-                    myController.text = '';
-                  },
-                )
-              ],
-            );
-          });
-    }
-  }
-
-  _onApprove(Device device) {
-    if (device.state == SessionState.connected) {
-      nearbyService.sendMessage(device.deviceId, 'Evidencija uspješna!');
-    }
-  }
-
-  int getItemCount() {
-    if (user.role == Role.professor) {
-      return connectedDevices.length;
-    } else {
-      return devices.length;
-    }
-  }
-
-  _onButtonClicked(Device device) {
-    switch (device.state) {
-      case SessionState.notConnected:
-        nearbyService.invitePeer(
-          deviceID: device.deviceId,
-          deviceName: device.deviceName,
-        );
-        break;
-      case SessionState.connected:
-        nearbyService.disconnectPeer(deviceID: device.deviceId);
-        break;
-      case SessionState.connecting:
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    var user = context.watch<UserProvider>().user;
+    user = context.watch<UserProvider>().user;
     List<String> professorNames = [
       'Marko Rezic',
       'Toni Milun',
@@ -285,28 +189,53 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
               ),
               SizedBox(height: 40),
               Text(
-                'Spojeni profesori:',
+                'Spojeni uređaji:',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 24,
                 ),
               ),
               SizedBox(height: 20),
-              ...professorNames.mapToList(
-                (professorName) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 4,
-                        backgroundColor: Colors.white,
-                      ),
-                      SizedBox(width: 20),
-                      Text(
-                        professorName,
-                        style: TextStyle(fontSize: 18),
-                      )
-                    ],
+              Expanded(
+                child: Container(
+                  child: ListView(
+                    children: (!isPhysicalDevice
+                        ? professorNames.mapToList(
+                            (professorName) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 4,
+                                    backgroundColor: Colors.white,
+                                  ),
+                                  SizedBox(width: 20),
+                                  Text(
+                                    professorName,
+                                    style: TextStyle(fontSize: 18),
+                                  )
+                                ],
+                              ),
+                            ),
+                          )
+                        : _connectedDevices.mapToList(
+                            (device) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 4,
+                                    backgroundColor: Colors.white,
+                                  ),
+                                  SizedBox(width: 20),
+                                  Text(
+                                    '${device.deviceName}   ID: ${device.deviceId}',
+                                    style: TextStyle(fontSize: 18),
+                                  )
+                                ],
+                              ),
+                            ),
+                          )),
                   ),
                 ),
               ),

@@ -194,9 +194,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                                   ? settingErrors[setting.key]
                                                   : null,
                                               labelText:
-                                                  setting.key.toCapitalized(),
+                                                  setting.value.toCapitalized(),
                                               hintText:
-                                                  "Unesite ${setting.key}",
+                                                  "Unesite ${setting.value}",
                                             ),
                                             focusNode:
                                                 settingFocusNodes[setting.key]!,

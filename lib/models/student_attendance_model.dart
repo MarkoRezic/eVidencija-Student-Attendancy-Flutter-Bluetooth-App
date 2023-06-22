@@ -21,22 +21,22 @@ class StudentAttendanceModel {
   // columns in the database.
   Map<String, dynamic> toMapInsert() {
     return {
-      'name': attendanceID,
-      'subjectID': studentID,
+      'attendanceID': attendanceID,
+      'studentID': studentID,
     };
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'name': attendanceID,
-      'subjectID': studentID,
+      'attendanceID': attendanceID,
+      'studentID': studentID,
     };
   }
 
   // Implement toString to make it easier to see information
   @override
   String toString() {
-    return '\nAttendance{id: $id, name: $attendanceID, subjectID: $studentID}';
+    return '\nAttendance{id: $id, attendanceID: $attendanceID, studentID: $studentID}';
   }
 }

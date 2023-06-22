@@ -2,6 +2,7 @@ import 'package:e_videncija/globals/database.dart';
 import 'package:e_videncija/globals/main_theme.dart';
 import 'package:e_videncija/models/attendance_model.dart';
 import 'package:e_videncija/utils/map_indexed_to_list.dart';
+import 'package:e_videncija/views/professor_attendance_scan.dart';
 import 'package:flutter/material.dart';
 
 import '../models/subject_model.dart';
@@ -64,76 +65,15 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
     });
   }
 
-  Future<void> _openCreateSubjectModal() async {
-    TextEditingController controller = TextEditingController();
-    String? subjectName = await showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, stateSetter) => SimpleDialog(
-          title: Text('Novi predmet'),
-          contentPadding: EdgeInsets.all(20),
-          children: [
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(labelText: 'Naziv predmeta'),
-              onChanged: (value) {
-                stateSetter(() {});
-              },
-              onEditingComplete: () {
-                Navigator.of(context).pop(controller.text);
-              },
-            ),
-            SizedBox(height: 20),
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Expanded(
-                  child: TextButton(
-                    style: ButtonStyle(
-                        backgroundColor: MaterialStatePropertyAll(
-                            EvidencijaTheme.errorColor)),
-                    onPressed: () {
-                      Navigator.of(context).pop(null);
-                    },
-                    child: Text('Prekid'),
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: TextButton(
-                    onPressed: controller.text.isEmpty
-                        ? null
-                        : () {
-                            Navigator.of(context).pop(controller.text);
-                          },
-                    child: Text('Spremi'),
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-
-    if (subjectName != null) {
-      await _database.insertSubject(SubjectModel(
-        id: -1,
-        name: subjectName,
-      ));
-      _getSubjects();
-    }
-  }
-
-  Future<void> _openUpdateSubjectModal(
-      SubjectModel subject, int subjectIndex) async {
+  Future<void> _openSubjectModal(
+      {SubjectModel? subject, int? subjectIndex}) async {
     TextEditingController controller =
-        TextEditingController(text: subject.name);
+        TextEditingController(text: subject?.name ?? 'Novi predmet');
     String? subjectName = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, stateSetter) => SimpleDialog(
-          title: Text('Uredi predmet'),
+          title: Text(subject != null ? 'Uredi predmet' : 'Novi predmet'),
           contentPadding: EdgeInsets.all(20),
           children: [
             TextField(
@@ -181,91 +121,35 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
     );
 
     if (subjectName != null) {
-      await _database.updateSubject(SubjectModel(
-        id: subject.id,
-        name: subjectName,
-      ));
+      if (subject != null) {
+        await _database.updateSubject(SubjectModel(
+          id: subject.id,
+          name: subjectName,
+        ));
+      } else {
+        await _database.insertSubject(SubjectModel(
+          id: -1,
+          name: subjectName,
+        ));
+      }
       _getSubjects();
     }
   }
 
-  Future<void> _openCreateAttendanceModal(
-      SubjectModel subject, int subjectIndex) async {
+  Future<void> _openAttendanceModal(
+      {AttendanceModel? attendance,
+      required SubjectModel subject,
+      required int subjectIndex}) async {
     DateTime now = DateTime.now();
     TextEditingController controller = TextEditingController(
-        text:
+        text: attendance?.name ??
             'Evidencija - ${now.day.toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}.${now.year}.');
     String? attendanceName = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, stateSetter) => SimpleDialog(
-          title: Text('Nova evidencija'),
-          contentPadding: EdgeInsets.all(20),
-          children: [
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(labelText: 'Naziv evidencije'),
-              onChanged: (value) {
-                stateSetter(() {});
-              },
-              onEditingComplete: () {
-                Navigator.of(context).pop(controller.text);
-              },
-            ),
-            SizedBox(height: 20),
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Expanded(
-                  child: TextButton(
-                    style: ButtonStyle(
-                        backgroundColor: MaterialStatePropertyAll(
-                            EvidencijaTheme.errorColor)),
-                    onPressed: () {
-                      Navigator.of(context).pop(null);
-                    },
-                    child: Text('Prekid'),
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: TextButton(
-                    onPressed: controller.text.isEmpty
-                        ? null
-                        : () {
-                            Navigator.of(context).pop(controller.text);
-                          },
-                    child: Text('Spremi'),
-                  ),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-
-    if (attendanceName != null) {
-      await _database.insertAttendance(AttendanceModel(
-        id: -1,
-        name: attendanceName,
-        createdAt: now.toIso8601String(),
-        subjectID: subject.id,
-      ));
-      _getAttendances(subjectIndex);
-    }
-  }
-
-  Future<void> _openUpdateAttendanceModal(AttendanceModel attendance,
-      SubjectModel subject, int subjectIndex) async {
-    DateTime now = DateTime.now();
-    TextEditingController controller =
-        TextEditingController(text: attendance.name);
-    String? attendanceName = await showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, stateSetter) => SimpleDialog(
-          title: Text('Uredi evidenciju'),
+          title:
+              Text(attendance != null ? 'Uredi evidenciju' : 'Nova evidencija'),
           contentPadding: EdgeInsets.all(20),
           children: [
             TextField(
@@ -313,14 +197,32 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
     );
 
     if (attendanceName != null) {
-      await _database.updateAttendance(AttendanceModel(
-        id: attendance.id,
-        name: attendanceName,
-        createdAt: attendance.createdAt,
-        subjectID: subject.id,
-      ));
+      if (attendance != null) {
+        await _database.updateAttendance(AttendanceModel(
+          id: attendance.id,
+          name: attendanceName,
+          createdAt: attendance.createdAt,
+          subjectID: subject.id,
+        ));
+      } else {
+        await _database.insertAttendance(AttendanceModel(
+          id: -1,
+          name: attendanceName,
+          createdAt: now.toIso8601String(),
+          subjectID: subject.id,
+        ));
+      }
       _getAttendances(subjectIndex);
     }
+  }
+
+  _navigateToAttendanceScan(
+      {required SubjectModel subject, required AttendanceModel attendance}) {
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => ProfessorAttendanceScan(
+              subject: subject,
+              attendance: attendance,
+            )));
   }
 
   @override
@@ -372,7 +274,7 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _openCreateSubjectModal,
+                    onPressed: () => _openSubjectModal(),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -439,8 +341,9 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                               title: Text(subject.name),
                               controlAffinity: ListTileControlAffinity.leading,
                               trailing: IconButton(
-                                onPressed: () => _openUpdateSubjectModal(
-                                    subject, subjectIndex),
+                                onPressed: () => _openSubjectModal(
+                                    subject: subject,
+                                    subjectIndex: subjectIndex),
                                 icon: Icon(Icons.edit),
                               ),
                               onExpansionChanged: (expanded) {
@@ -477,10 +380,12 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                                                         Text(attendance.name),
                                                     trailing: IconButton(
                                                       onPressed: () =>
-                                                          _openUpdateAttendanceModal(
-                                                              attendance,
-                                                              subject,
-                                                              subjectIndex),
+                                                          _openAttendanceModal(
+                                                              attendance:
+                                                                  attendance,
+                                                              subject: subject,
+                                                              subjectIndex:
+                                                                  subjectIndex),
                                                       icon: Icon(Icons.edit),
                                                     ),
                                                     shape:
@@ -497,7 +402,11 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                                                     hoverColor: Colors.white,
                                                     splashColor: Colors.white
                                                         .withOpacity(0.5),
-                                                    onTap: () {},
+                                                    onTap: () =>
+                                                        _navigateToAttendanceScan(
+                                                            subject: subject,
+                                                            attendance:
+                                                                attendance),
                                                   ),
                                                 ),
                                               ),
@@ -512,9 +421,9 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                                     children: [
                                       Expanded(
                                         child: TextButton(
-                                          onPressed: () =>
-                                              _openCreateAttendanceModal(
-                                                  subject, subjectIndex),
+                                          onPressed: () => _openAttendanceModal(
+                                              subject: subject,
+                                              subjectIndex: subjectIndex),
                                           child: Row(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,

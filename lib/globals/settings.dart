@@ -112,4 +112,8 @@ class Settings {
   Map<String, dynamic> toJSON() {
     return jsonDecode(preferences.getString('settings')!);
   }
+
+  String asJSONString() {
+    return preferences.getString('settings') ?? jsonEncode(defaults);
+  }
 }

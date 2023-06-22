@@ -1,6 +1,7 @@
 import 'package:e_videncija/models/attendance_model.dart';
 import 'package:e_videncija/models/student_attendance_model.dart';
 import 'package:e_videncija/utils/remove_null_from_list.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:path/path.dart' as Path;
 import 'package:sqflite/sqflite.dart';
 
@@ -71,12 +72,12 @@ class EvidencijaDatabase {
   EvidencijaDatabase._(Database db) : database = db;
 
   /// SUBJECTS TABLE
-  Future<void> insertSubject(SubjectModel subject) async {
+  Future<int> insertSubject(SubjectModel subject) async {
     // Insert the Subject into the correct table. You might also specify the
     // `conflictAlgorithm` to use in case the same doc is inserted twice.
     //
     // In this case, replace any previous data.
-    await database.insert(
+    return await database.insert(
       subjectTable,
       subject.toMapInsert(),
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -135,8 +136,8 @@ class EvidencijaDatabase {
   }
 
   /// ATTENDANCES TABLE
-  Future<void> insertAttendance(AttendanceModel attendance) async {
-    await database.insert(
+  Future<int> insertAttendance(AttendanceModel attendance) async {
+    return await database.insert(
       attendanceTable,
       attendance.toMapInsert(),
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -208,18 +209,30 @@ class EvidencijaDatabase {
   }
 
   /// STUDENTS TABLE
-  Future<void> insertStudent(StudentModel student) async {
-    await database.insert(
+  Future<int> insertStudent(StudentModel student) async {
+    return await database.insert(
       studentTable,
       student.toMapInsert(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<List<StudentModel>> getStudents() async {
-    final List<Map<String, dynamic>> maps = await database.query(
-      studentTable,
-    );
+  Future<List<StudentModel>> getStudents({AttendanceModel? attendance}) async {
+    String? attendanceQuery = attendance == null
+        ? null
+        : '''
+        SELECT students.id, students.firstname, students.lastname, students.university, students.deviceID
+        FROM students
+        JOIN student_attendances ON student_attendances.studentID = students.id
+        JOIN attendances ON student_attendances.attendanceID = attendances.id
+        WHERE attendances.id = ${attendance.id}
+      ''';
+
+    final List<Map<String, dynamic>> maps = attendanceQuery == null
+        ? await database.query(
+            studentTable,
+          )
+        : await database.rawQuery(attendanceQuery);
 
     return List.generate(maps.length, (i) {
       return StudentModel(
@@ -230,6 +243,23 @@ class EvidencijaDatabase {
         deviceID: maps[i]['deviceID'],
       );
     });
+  }
+
+  Future<StudentModel?> getStudentByDeviceID({required String deviceID}) async {
+    final List<Map<String, dynamic>> maps = await database
+        .query(studentTable, where: 'deviceID = ?', whereArgs: [deviceID]);
+
+    final studentList = List.generate(maps.length, (i) {
+      return StudentModel(
+        id: maps[i]['id'],
+        firstname: maps[i]['firstname'],
+        lastname: maps[i]['lastname'],
+        university: maps[i]['university'],
+        deviceID: maps[i]['deviceID'],
+      );
+    });
+
+    return studentList.isEmpty ? null : studentList.first;
   }
 
   Future<bool> checkStudentDeviceIDExists(String deviceID) async {
@@ -274,9 +304,9 @@ class EvidencijaDatabase {
   }
 
   /// STUDENT ATTENDANCES TABLE
-  Future<void> insertStudentAttendance(
+  Future<int> insertStudentAttendance(
       StudentAttendanceModel studentAttendance) async {
-    await database.insert(
+    return await database.insert(
       studentAttendanceTable,
       studentAttendance.toMapInsert(),
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -343,5 +373,57 @@ class EvidencijaDatabase {
             ].join(' AND '),
       whereArgs: [attendance?.id, student?.id].removeNull(),
     );
+  }
+
+  Future<List<Map<String, Object?>>> getAttendanceCount(
+      {required StudentModel student}) async {
+    String? attendanceCountQuery = '''
+        SELECT s.id, s.name, COUNT(st.id) count
+        FROM subjects s
+        LEFT JOIN attendances a ON a.subjectID = s.id
+        LEFT JOIN student_attendances sa ON sa.attendanceID = a.id
+        LEFT JOIN students st ON sa.studentID = st.id
+        WHERE st.id = ${student.id}
+        GROUP BY s.id, st.id 
+      ''';
+
+    String? attendanceTotalQuery = '''
+        SELECT s.id, s.name, COUNT(a.id) total
+        FROM subjects s
+        LEFT JOIN attendances a ON a.subjectID = s.id
+        GROUP BY s.id
+      ''';
+
+    final List<Map<String, dynamic>> mapsCount =
+        await database.rawQuery(attendanceCountQuery);
+    final List<Map<String, dynamic>> mapsTotal =
+        await database.rawQuery(attendanceTotalQuery);
+
+    debugPrint(mapsCount.toString());
+    debugPrint(mapsTotal.toString());
+
+    return List.generate(mapsTotal.length, (i) {
+      Map<String, dynamic>? mapCount;
+      for (var map in mapsCount) {
+        if (map["id"] == mapsTotal[i]["id"]) {
+          mapCount = map;
+          break;
+        }
+      }
+      int studentCount = mapCount?["count"] ?? 0;
+      int totalCount = mapsTotal[i]["total"];
+      debugPrint(studentCount.toString());
+      debugPrint(totalCount.toString());
+
+      return {
+        "name": mapsTotal[i]["name"],
+        "count": mapCount?["count"] ?? 0,
+        "total": mapsTotal[i]["total"],
+        "percentage": (studentCount == 0 || totalCount == 0
+                ? 0
+                : (100 * (studentCount / totalCount)))
+            .round(),
+      };
+    });
   }
 }
