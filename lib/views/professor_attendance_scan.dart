@@ -13,6 +13,7 @@ import 'package:e_videncija/utils/show_toast.dart';
 import 'package:e_videncija/views/student_details_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_nearby_connections/flutter_nearby_connections.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../globals/settings.dart';
@@ -252,7 +253,8 @@ class _ProfessorAttendanceScanState extends State<ProfessorAttendanceScan> {
                     onPressed: () {
                       Navigator.of(context).pop(null);
                     },
-                    child: Text('Prekid'),
+                    child:
+                        FittedBox(fit: BoxFit.fitWidth, child: Text('Prekid')),
                   ),
                 ),
                 SizedBox(width: 10),
@@ -261,7 +263,8 @@ class _ProfessorAttendanceScanState extends State<ProfessorAttendanceScan> {
                     onPressed: () {
                       Navigator.of(context).pop(true);
                     },
-                    child: Text('Evidentiraj'),
+                    child: FittedBox(
+                        fit: BoxFit.fitWidth, child: Text('Evidentiraj')),
                   ),
                 ),
               ],
@@ -331,6 +334,36 @@ class _ProfessorAttendanceScanState extends State<ProfessorAttendanceScan> {
         builder: (context) => StudentDetailsPage(student: student),
       ),
     );
+  }
+
+  _exportAttendance() async {
+    try {
+      final settings = await Settings.getInstance();
+      final user = context.read<UserProvider>().user;
+      final now = DateTime.now();
+      final database = await EvidencijaDatabase.getInstance();
+      final content = await database.exportSubjects(
+          subject: widget.subject, attendance: widget.attendance);
+      final response = await http.post(
+          Uri.parse(
+              '${settings.getSetting(Setting.serverHost)}/${settings.getSetting(Setting.exportRoute)}'),
+          body: {
+            "fileName":
+                "${user.titles} ${user.firstname} ${user.lastname} - ${widget.attendance.name} ${widget.subject.name} ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+            "content": content,
+          });
+      debugPrint(response.body);
+      if (mounted) {
+        showToast('Export uspješan', context: context);
+      }
+    } catch (_) {
+      debugPrint(_.toString());
+      showToast(
+        'Došlo je do greške. Molimo provjerite postavke.',
+        context: context,
+        backgroundColor: EvidencijaTheme.errorColor,
+      );
+    }
   }
 
   @override
@@ -420,7 +453,7 @@ class _ProfessorAttendanceScanState extends State<ProfessorAttendanceScan> {
                   SizedBox(width: 20),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => () {},
+                      onPressed: _exportAttendance,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

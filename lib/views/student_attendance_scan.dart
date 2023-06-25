@@ -108,8 +108,10 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
       //find professor device as the one that was not in the previous list
       //(if there are multiple just take first one, because in practice only 1 professor should connect at a time)
       List<Device> newProfessorDevices = devicesList
-          .where((device) => !_connectedDevices.any(
-              (connectedDevice) => connectedDevice.deviceId == device.deviceId))
+          .where((device) =>
+              device.state == SessionState.connected &&
+              !_connectedDevices.any((connectedDevice) =>
+                  connectedDevice.deviceId == device.deviceId))
           .toList();
       Device? professorDevice =
           newProfessorDevices.isEmpty ? null : newProfessorDevices.first;

@@ -1,9 +1,14 @@
 import 'package:e_videncija/globals/database.dart';
 import 'package:e_videncija/globals/main_theme.dart';
+import 'package:e_videncija/globals/settings.dart';
 import 'package:e_videncija/models/attendance_model.dart';
+import 'package:e_videncija/providers/user_provider.dart';
 import 'package:e_videncija/utils/map_indexed_to_list.dart';
+import 'package:e_videncija/utils/show_toast.dart';
 import 'package:e_videncija/views/professor_attendance_scan.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 
 import '../models/subject_model.dart';
 
@@ -66,14 +71,18 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
   }
 
   Future<void> _openSubjectModal(
-      {SubjectModel? subject, int? subjectIndex}) async {
+      {SubjectModel? subject, int? subjectIndex, bool delete = false}) async {
     TextEditingController controller =
         TextEditingController(text: subject?.name ?? 'Novi predmet');
     String? subjectName = await showDialog<String>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, stateSetter) => SimpleDialog(
-          title: Text(subject != null ? 'Uredi predmet' : 'Novi predmet'),
+          title: Text(delete
+              ? 'Izbriši predmet'
+              : subject != null
+                  ? 'Uredi predmet'
+                  : 'Novi predmet'),
           contentPadding: EdgeInsets.all(20),
           children: [
             TextField(
@@ -86,7 +95,12 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
               onEditingComplete: () {
                 Navigator.of(context).pop(controller.text);
               },
+              readOnly: delete,
+              enableInteractiveSelection: !delete,
+              canRequestFocus: !delete,
             ),
+            SizedBox(height: 20),
+            Text('Jeste li sigurni da želite izbrisati predmet?'),
             SizedBox(height: 20),
             Row(
               mainAxisSize: MainAxisSize.max,
@@ -105,12 +119,12 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                 SizedBox(width: 10),
                 Expanded(
                   child: TextButton(
-                    onPressed: controller.text.isEmpty
+                    onPressed: !delete && controller.text.isEmpty
                         ? null
                         : () {
                             Navigator.of(context).pop(controller.text);
                           },
-                    child: Text('Spremi'),
+                    child: Text(delete ? 'Izbriši' : 'Spremi'),
                   ),
                 ),
               ],
@@ -121,7 +135,12 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
     );
 
     if (subjectName != null) {
-      if (subject != null) {
+      if (delete) {
+        if (subject == null) {
+          return;
+        }
+        await _database.deleteSubjectById(subject.id);
+      } else if (subject != null) {
         await _database.updateSubject(SubjectModel(
           id: subject.id,
           name: subjectName,
@@ -139,7 +158,8 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
   Future<void> _openAttendanceModal(
       {AttendanceModel? attendance,
       required SubjectModel subject,
-      required int subjectIndex}) async {
+      required int subjectIndex,
+      bool delete = false}) async {
     DateTime now = DateTime.now();
     TextEditingController controller = TextEditingController(
         text: attendance?.name ??
@@ -148,8 +168,11 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, stateSetter) => SimpleDialog(
-          title:
-              Text(attendance != null ? 'Uredi evidenciju' : 'Nova evidencija'),
+          title: Text(delete
+              ? 'Izbriši evidenciju'
+              : attendance != null
+                  ? 'Uredi evidenciju'
+                  : 'Nova evidencija'),
           contentPadding: EdgeInsets.all(20),
           children: [
             TextField(
@@ -162,6 +185,9 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
               onEditingComplete: () {
                 Navigator.of(context).pop(controller.text);
               },
+              readOnly: delete,
+              enableInteractiveSelection: !delete,
+              canRequestFocus: !delete,
             ),
             SizedBox(height: 20),
             Row(
@@ -186,7 +212,7 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                         : () {
                             Navigator.of(context).pop(controller.text);
                           },
-                    child: Text('Spremi'),
+                    child: Text(delete ? 'Izbriši' : 'Spremi'),
                   ),
                 ),
               ],
@@ -197,7 +223,12 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
     );
 
     if (attendanceName != null) {
-      if (attendance != null) {
+      if (delete) {
+        if (attendance == null) {
+          return;
+        }
+        await _database.deleteAttendanceByID(attendance.id);
+      } else if (attendance != null) {
         await _database.updateAttendance(AttendanceModel(
           id: attendance.id,
           name: attendanceName,
@@ -223,6 +254,36 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
               subject: subject,
               attendance: attendance,
             )));
+  }
+
+  _exportSubjects({SubjectModel? subject, AttendanceModel? attendance}) async {
+    try {
+      final settings = await Settings.getInstance();
+      final user = context.read<UserProvider>().user;
+      final now = DateTime.now();
+      final database = await EvidencijaDatabase.getInstance();
+      final content = await database.exportSubjects(
+          subject: subject, attendance: attendance);
+      final response = await http.post(
+          Uri.parse(
+              '${settings.getSetting(Setting.serverHost)}/${settings.getSetting(Setting.exportRoute)}'),
+          body: {
+            "fileName":
+                "${user.titles} ${user.firstname} ${user.lastname} - ${attendance == null ? 'Evidencije' : attendance.name} ${subject == null ? 'Svi Predmeti' : subject.name} ${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}",
+            "content": content,
+          });
+      debugPrint(response.body);
+      if (mounted) {
+        showToast('Export uspješan', context: context);
+      }
+    } catch (_) {
+      debugPrint(_.toString());
+      showToast(
+        'Došlo je do greške. Molimo provjerite postavke.',
+        context: context,
+        backgroundColor: EvidencijaTheme.errorColor,
+      );
+    }
   }
 
   @override
@@ -296,7 +357,7 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                 SizedBox(width: 20),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => () {},
+                    onPressed: _exportSubjects,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -340,11 +401,25 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                                   : null,
                               title: Text(subject.name),
                               controlAffinity: ListTileControlAffinity.leading,
-                              trailing: IconButton(
-                                onPressed: () => _openSubjectModal(
-                                    subject: subject,
-                                    subjectIndex: subjectIndex),
-                                icon: Icon(Icons.edit),
+                              trailing: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    onPressed: () => _openSubjectModal(
+                                      subject: subject,
+                                      subjectIndex: subjectIndex,
+                                      delete: true,
+                                    ),
+                                    icon: Icon(Icons.close),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => _openSubjectModal(
+                                        subject: subject,
+                                        subjectIndex: subjectIndex),
+                                    icon: Icon(Icons.edit),
+                                  ),
+                                ],
                               ),
                               onExpansionChanged: (expanded) {
                                 setState(() {
@@ -378,15 +453,38 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                                                   child: ListTile(
                                                     title:
                                                         Text(attendance.name),
-                                                    trailing: IconButton(
-                                                      onPressed: () =>
-                                                          _openAttendanceModal(
-                                                              attendance:
-                                                                  attendance,
-                                                              subject: subject,
-                                                              subjectIndex:
-                                                                  subjectIndex),
-                                                      icon: Icon(Icons.edit),
+                                                    trailing: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment.end,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        IconButton(
+                                                          onPressed: () =>
+                                                              _openAttendanceModal(
+                                                            attendance:
+                                                                attendance,
+                                                            subject: subject,
+                                                            subjectIndex:
+                                                                subjectIndex,
+                                                            delete: true,
+                                                          ),
+                                                          icon:
+                                                              Icon(Icons.close),
+                                                        ),
+                                                        IconButton(
+                                                          onPressed: () =>
+                                                              _openAttendanceModal(
+                                                            attendance:
+                                                                attendance,
+                                                            subject: subject,
+                                                            subjectIndex:
+                                                                subjectIndex,
+                                                          ),
+                                                          icon:
+                                                              Icon(Icons.edit),
+                                                        ),
+                                                      ],
                                                     ),
                                                     shape:
                                                         RoundedRectangleBorder(
@@ -446,7 +544,8 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
                                       SizedBox(width: 20),
                                       Expanded(
                                         child: TextButton(
-                                          onPressed: () => () {},
+                                          onPressed: () =>
+                                              _exportSubjects(subject: subject),
                                           child: Row(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,

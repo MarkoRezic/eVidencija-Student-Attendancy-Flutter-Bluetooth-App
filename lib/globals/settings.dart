@@ -14,6 +14,8 @@ class Setting {
   static const role = 'role';
   static const titles = 'titles';
   static const deviceID = 'deviceId';
+  static const serverHost = 'serverHost';
+  static const exportRoute = 'exportRoute';
 }
 
 class Settings {
@@ -27,6 +29,8 @@ class Settings {
     Setting.role: '',
     Setting.titles: '',
     Setting.deviceID: '',
+    Setting.serverHost: '10.0.2.2',
+    Setting.exportRoute: 'export',
   };
   static final selectValues = {
     Setting.role: Role.values.mapToList((role) => role.name),
@@ -49,6 +53,10 @@ class Settings {
     Setting.lastname: 'Prezime',
     Setting.university: 'Fakultet',
   };
+  static const serverLabels = {
+    Setting.serverHost: 'Server',
+    Setting.exportRoute: 'Ruta za export',
+  };
   static const types = {
     Setting.initialized: SettingTypes.boolean,
     Setting.firstname: SettingTypes.text,
@@ -57,6 +65,8 @@ class Settings {
     Setting.role: SettingTypes.select,
     Setting.titles: SettingTypes.text,
     Setting.deviceID: SettingTypes.text,
+    Setting.serverHost: SettingTypes.text,
+    Setting.exportRoute: SettingTypes.text,
   };
   static const rules = {
     Setting.initialized: [],
@@ -66,6 +76,8 @@ class Settings {
     Setting.role: ['required'],
     Setting.titles: [],
     Setting.deviceID: [],
+    Setting.serverHost: [],
+    Setting.exportRoute: [],
   };
 
   static Future<Settings> getInstance() async {

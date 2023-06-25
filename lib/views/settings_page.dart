@@ -37,11 +37,10 @@ class _SettingsPageState extends State<SettingsPage> {
       settings = instance;
       user = context.read<UserProvider>().user;
 
-      debugPrint(settings.getSetting(Setting.firstname));
       updatedSettings = settings.toJSON();
       updatedSettings[Setting.initialized] = true;
       settingErrors = Map.fromEntries((user.role == Role.professor
-              ? Settings.professorLabels
+              ? {...Settings.professorLabels, ...Settings.serverLabels}
               : Settings.studentLabels)
           .entries
           .map<MapEntry<String, String?>>((setting) {
@@ -53,7 +52,7 @@ class _SettingsPageState extends State<SettingsPage> {
         return MapEntry(setting.key, error);
       }));
       displayErrors = Map.fromEntries((user.role == Role.professor
-              ? Settings.professorLabels
+              ? {...Settings.professorLabels, ...Settings.serverLabels}
               : Settings.studentLabels)
           .entries
           .map<MapEntry<String, bool>>((setting) {
@@ -61,7 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
       }));
 
       settingControllers = Map.fromEntries((user.role == Role.professor
-              ? Settings.professorLabels
+              ? {...Settings.professorLabels, ...Settings.serverLabels}
               : Settings.studentLabels)
           .entries
           .map<MapEntry<String, TextEditingController?>>((setting) {
@@ -74,7 +73,7 @@ class _SettingsPageState extends State<SettingsPage> {
         return MapEntry(setting.key, controller);
       }));
       settingFocusNodes = Map.fromEntries((user.role == Role.professor
-              ? Settings.professorLabels
+              ? {...Settings.professorLabels, ...Settings.serverLabels}
               : Settings.studentLabels)
           .entries
           .map<MapEntry<String, FocusNode?>>((setting) {
@@ -87,8 +86,6 @@ class _SettingsPageState extends State<SettingsPage> {
       }));
       setState(() {
         settingsLoading = false;
-        debugPrint(updatedSettings.toString());
-        debugPrint(settingErrors.toString());
       });
     });
   }
@@ -157,7 +154,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             SizedBox(height: 5),
                             Text(
-                              "${user.role == Role.professor ? "${user.titles}" : ""}${user.firstname} ${user.lastname}",
+                              "${user.role == Role.professor ? "${user.titles} " : ""}${user.firstname} ${user.lastname}",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
@@ -172,7 +169,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: _formKey,
                       child: Column(
                         children: (user.role == Role.professor
-                                ? Settings.professorLabels
+                                ? {
+                                    ...Settings.professorLabels,
+                                    ...Settings.serverLabels
+                                  }
                                 : Settings.studentLabels)
                             .entries
                             .map<Widget>((setting) {

@@ -1,5 +1,8 @@
+import 'dart:math';
+
 import 'package:e_videncija/models/attendance_model.dart';
 import 'package:e_videncija/models/student_attendance_model.dart';
+import 'package:e_videncija/utils/map_indexed_to_list.dart';
 import 'package:e_videncija/utils/remove_null_from_list.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:path/path.dart' as Path;
@@ -320,9 +323,9 @@ class EvidencijaDatabase {
       where: (attendance == null && student == null)
           ? null
           : [
-              attendance != null ? 'attendanceID = ?' : '',
-              student != null ? 'studentID = ?' : ''
-            ].join(' AND '),
+              attendance != null ? 'attendanceID = ?' : null,
+              student != null ? 'studentID = ?' : null
+            ].removeNull().join(' AND '),
       whereArgs: [attendance?.id, student?.id].removeNull(),
     );
 
@@ -368,9 +371,9 @@ class EvidencijaDatabase {
       where: (attendance == null && student == null)
           ? null
           : [
-              attendance != null ? 'attendanceID = ?' : '',
-              student != null ? 'studentID = ?' : ''
-            ].join(' AND '),
+              attendance != null ? 'attendanceID = ?' : null,
+              student != null ? 'studentID = ?' : null
+            ].removeNull().join(' AND '),
       whereArgs: [attendance?.id, student?.id].removeNull(),
     );
   }
@@ -425,5 +428,119 @@ class EvidencijaDatabase {
             .round(),
       };
     });
+  }
+
+  Future<String> exportSubjects(
+      {SubjectModel? subject, AttendanceModel? attendance}) async {
+    String? allSubjectsAttendancesQuery = '''
+        SELECT s.id subjectId, s.name subjectName, a.id attendanceId, a.name attendanceName
+        FROM subjects s
+        LEFT JOIN attendances a ON a.subjectID = s.id
+        ${subject != null ? 'WHERE s.id = ${subject.id}' : ''}
+        ${attendance != null ? '${subject == null ? 'WHERE' : 'AND'} a.id = ${attendance.id}' : ''}
+        ORDER BY s.id, a.id ASC
+      ''';
+
+    String? studentAttendanceQuery = '''
+        SELECT s.id subjectId, s.name subjectName, a.id attendanceId, a.name attendanceName, st.id studentId, st.firstname, st.lastname, st.university, sa.id stid
+        FROM subjects s
+        JOIN attendances a ON a.subjectID = s.id
+        JOIN student_attendances sa ON sa.attendanceID = a.id
+        JOIN students st ON sa.studentID = st.id
+        ${subject != null ? 'WHERE s.id = ${subject.id}' : ''}
+        ${attendance != null ? '${subject == null ? 'WHERE' : 'AND'} a.id = ${attendance.id}' : ''}
+        ORDER BY s.id, a.id, st.id ASC
+      ''';
+    final List<Map<String, dynamic>> mapsSubjectsAttendances =
+        await database.rawQuery(allSubjectsAttendancesQuery);
+    final List<Map<String, dynamic>> mapsStudentAttendances =
+        await database.rawQuery(studentAttendanceQuery);
+
+    debugPrint("Subjects and attendances:");
+    for (var map in mapsSubjectsAttendances) {
+      debugPrint(map.toString());
+    }
+
+    debugPrint("Student attendances:");
+    for (var map in mapsStudentAttendances) {
+      debugPrint(map.toString());
+    }
+
+    List<Map<String, dynamic>> subjects = [];
+
+    //this will determine the number of rows for each subject
+    Map<String, int> studentsMaxCount = {};
+
+    for (var subjectRow in mapsSubjectsAttendances) {
+      int subjectIndex = subjects.indexWhere(
+          (subject) => subject["subjectId"] == subjectRow["subjectId"]);
+      //Add the new subject to subjects
+      if (subjectIndex == -1) {
+        subjects.add({
+          "subjectId": subjectRow["subjectId"],
+          "subjectName": subjectRow["subjectName"],
+          "attendances": [],
+        });
+        subjectIndex = subjects.length - 1;
+        studentsMaxCount[subjectRow["subjectId"].toString()] = 0;
+      }
+      //Add the attendance to the subject
+      if (subjectRow["attendanceId"] != null) {
+        subjects[subjectIndex]["attendances"].add({
+          "attendanceId": subjectRow["attendanceId"],
+          "attendanceName": subjectRow["attendanceName"],
+          "students": mapsStudentAttendances
+              .where((studentAttendanceRow) =>
+                  studentAttendanceRow["attendanceId"] ==
+                  subjectRow["attendanceId"])
+              .mapToList((studentAttendanceRow) => {
+                    "studentId": studentAttendanceRow["studentId"],
+                    "firstname": studentAttendanceRow["firstname"],
+                    "lastname": studentAttendanceRow["lastname"],
+                    "university": studentAttendanceRow["university"],
+                  }),
+        });
+
+        studentsMaxCount[subjectRow["subjectId"].toString()] = max(
+            subjects[subjectIndex]["attendances"].last["students"].length,
+            studentsMaxCount[subjectRow["subjectId"].toString()]!);
+      }
+    }
+    debugPrint(subjects.toString());
+
+    debugPrint("ROWS:");
+    debugPrint(studentsMaxCount.toString());
+
+    String content = '';
+
+    for (var subject in subjects) {
+      content += "Predmet:;${subject["subjectName"]};\n";
+      for (int i = -1;
+          i < studentsMaxCount[subject["subjectId"].toString()]!;
+          i++) {
+        for (int j = 0; j < subject["attendances"].length; j++) {
+          //first row is header for attendanceNames
+          if (i == -1) {
+            content += subject["attendances"][j]["attendanceName"];
+            content += ';';
+          }
+          //insert the i-th student of the j-th attendance (if not exists then empty string)
+          else {
+            List<Map<String, dynamic>> studentList =
+                subject["attendances"][j]["students"];
+            if (studentList.length > i) {
+              content +=
+                  '${studentList[i]["firstname"]} ${studentList[i]["lastname"]} (${studentList[i]["university"]})';
+            }
+            content += ';';
+          }
+        }
+        content += "\n";
+      }
+      content += "\n";
+    }
+
+    debugPrint(content);
+    return content;
   }
 }
