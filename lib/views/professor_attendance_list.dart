@@ -99,8 +99,12 @@ class _ProfessorAttendanceListState extends State<ProfessorAttendanceList> {
               enableInteractiveSelection: !delete,
               canRequestFocus: !delete,
             ),
-            SizedBox(height: 20),
-            Text('Jeste li sigurni da želite izbrisati predmet?'),
+            ...(!delete
+                ? []
+                : [
+                    SizedBox(height: 20),
+                    Text('Jeste li sigurni da želite izbrisati predmet?'),
+                  ]),
             SizedBox(height: 20),
             Row(
               mainAxisSize: MainAxisSize.max,

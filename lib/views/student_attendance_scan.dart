@@ -145,9 +145,9 @@ class _StudentAttendanceScanState extends State<StudentAttendanceScan> {
   Widget build(BuildContext context) {
     user = context.watch<UserProvider>().user;
     List<String> professorNames = [
-      'Marko Rezic',
-      'Toni Milun',
-      'Arnold Schwarzeneger'
+      'Redmi Note7    ID: VG6A',
+      'Nokia X6    ID: XVF3',
+      'Samsung A5    ID: FSQZ'
     ];
 
     return Scaffold(

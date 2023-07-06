@@ -127,7 +127,7 @@ class _InitRoleState extends State<InitRole> {
             mainAxisSize: MainAxisSize.max,
             children: [
               Image.asset(
-                'assets/images/professor_icon_white.png',
+                'assets/images/${widget.role.name}_icon_white.png',
                 width: 150,
               ),
               SizedBox(height: 20),
